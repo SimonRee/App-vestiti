@@ -1,11 +1,11 @@
 import { Camera } from 'lucide-react'
 
-function Home() {
+function Home({ onAddClothing }) {
   return (
     <section className="page">
       <header className="page-header">
         <p className="page-label">Outfit del giorno</p>
-        <h1>Oggi potresti indossare</h1>
+        <h1>Gasa?</h1>
       </header>
 
       <div className="outfit-preview">
@@ -14,6 +14,8 @@ function Home() {
 
       <button
         className="camera-action"
+        type="button"
+        onClick={onAddClothing}
         aria-label="Aggiungi un capo"
       >
         <Camera />

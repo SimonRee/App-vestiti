@@ -172,3 +172,327 @@ button {
     transform: translateX(-50%);
   }
 }
+
+.profile-button,
+.profile-back {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d5d5d5;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: #111111;
+  cursor: pointer;
+}
+
+.profile-button {
+  position: absolute;
+  z-index: 5;
+  top: 24px;
+  right: 20px;
+}
+
+.profile-button svg,
+.profile-back svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.7;
+}
+
+.profile-button:active,
+.profile-back:active,
+.profile-logout:active {
+  transform: scale(0.97);
+}
+
+.profile-page {
+  min-height: 100vh;
+}
+
+.profile-back {
+  margin-bottom: 48px;
+}
+
+.profile-header {
+  margin-bottom: 48px;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  border-radius: 50%;
+  background-color: #111111;
+  color: #ffffff;
+}
+
+.profile-avatar svg {
+  width: 32px;
+  height: 32px;
+  stroke-width: 1.5;
+}
+
+.profile-section {
+  padding: 20px 0;
+  border-top: 1px solid #dddddd;
+  border-bottom: 1px solid #dddddd;
+}
+
+.profile-field-label {
+  margin: 0 0 8px;
+  color: #777777;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-email {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.profile-logout {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #111111;
+  border-radius: 999px;
+  background-color: #ffffff;
+  color: #111111;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-logout svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.7;
+}
+
+.add-clothing-page {
+  padding-bottom: 48px;
+}
+
+.clothing-form {
+  display: grid;
+  gap: 24px;
+}
+
+.photo-field {
+  display: grid;
+  gap: 12px;
+}
+
+.photo-placeholder,
+.photo-preview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+}
+
+.photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: #f1f1f1;
+  color: #777777;
+  font-size: 14px;
+}
+
+.photo-placeholder svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.5;
+}
+
+.photo-preview {
+  display: block;
+  object-fit: contain;
+  background-color: #f1f1f1;
+}
+
+.photo-select-button {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #111111;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photo-select-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.form-field {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #cccccc;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #111111;
+  font: inherit;
+  outline: none;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: #111111;
+}
+
+.form-field small {
+  color: #777777;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.season-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.season-field legend {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.season-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.season-option {
+  padding: 10px 14px;
+  border: 1px solid #cccccc;
+  border-radius: 999px;
+  color: #555555;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.season-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.season-option-selected {
+  border-color: #111111;
+  background-color: #111111;
+  color: #ffffff;
+}
+
+.form-message {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f1f1f1;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.save-clothing-button {
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background-color: #111111;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-clothing-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.clothes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 12px;
+}
+
+.clothing-card {
+  min-width: 0;
+}
+
+.clothing-card-image {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #f1f1f1;
+}
+
+.clothing-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.clothing-card-image span {
+  padding: 12px;
+  color: #777777;
+  font-size: 12px;
+  text-align: center;
+}
+
+.clothing-card-info {
+  padding-top: 10px;
+}
+
+.clothing-card-info h2 {
+  margin: 0 0 4px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clothing-card-info p {
+  margin: 0;
+  color: #777777;
+  font-size: 12px;
+}
