@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ImagePlus } from 'lucide-react'
+import { removeBackground } from '@imgly/background-removal'
 import { supabase } from '../lib/supabase'
 
 const categories = [
@@ -25,8 +26,13 @@ const seasons = [
 ]
 
 function AddClothing({ onBack, onSaved }) {
-  const [file, setFile] = useState(null)
+  const [originalFile, setOriginalFile] = useState(null)
+  const [processedFile, setProcessedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
+
+  const [processing, setProcessing] = useState(false)
+  const [processingProgress, setProcessingProgress] = useState(0)
+  const [processingError, setProcessingError] = useState('')
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
@@ -36,7 +42,7 @@ function AddClothing({ onBack, onSaved }) {
   const [tags, setTags] = useState('')
   const [notes, setNotes] = useState('')
 
-  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -47,8 +53,18 @@ function AddClothing({ onBack, onSaved }) {
     }
   }, [previewUrl])
 
-  function handleFileChange(event) {
+  function updatePreview(file) {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
+
+    setPreviewUrl(URL.createObjectURL(file))
+  }
+
+  async function handleFileChange(event) {
     const selectedFile = event.target.files?.[0]
+
+    event.target.value = ''
 
     if (!selectedFile) {
       return
@@ -64,13 +80,68 @@ function AddClothing({ onBack, onSaved }) {
       return
     }
 
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
+    setOriginalFile(selectedFile)
+    setProcessedFile(null)
+    setMessage('')
+    setProcessingError('')
+    updatePreview(selectedFile)
+
+    await processImage(selectedFile)
+  }
+
+  async function processImage(imageFile) {
+    setProcessing(true)
+    setProcessingProgress(0)
+    setProcessingError('')
+
+    try {
+      const resultBlob = await removeBackground(imageFile, {
+        model: 'small',
+
+        output: {
+          format: 'image/webp',
+          quality: 0.85,
+        },
+
+        progress: (_key, current, total) => {
+          if (!total) {
+            return
+          }
+
+          const percentage = Math.round((current / total) * 100)
+          setProcessingProgress(percentage)
+        },
+      })
+
+      const resultFile = new File(
+        [resultBlob],
+        `${crypto.randomUUID()}.webp`,
+        {
+          type: 'image/webp',
+        },
+      )
+
+      setProcessedFile(resultFile)
+      updatePreview(resultFile)
+    } catch (error) {
+      console.error('Errore rimozione sfondo:', error)
+
+      setProcessingError(
+        'Non è stato possibile rimuovere lo sfondo.',
+      )
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  function useOriginalImage() {
+    if (!originalFile) {
+      return
     }
 
-    setFile(selectedFile)
-    setPreviewUrl(URL.createObjectURL(selectedFile))
-    setMessage('')
+    setProcessedFile(originalFile)
+    updatePreview(originalFile)
+    setProcessingError('')
   }
 
   function toggleSeason(season) {
@@ -86,12 +157,12 @@ function AddClothing({ onBack, onSaved }) {
   async function handleSubmit(event) {
     event.preventDefault()
 
-    if (!file) {
-      setMessage('Aggiungi una fotografia del capo.')
+    if (!processedFile) {
+      setMessage('Aggiungi e prepara una fotografia del capo.')
       return
     }
 
-    setLoading(true)
+    setSaving(true)
     setMessage('')
 
     let uploadedImagePath = null
@@ -106,16 +177,17 @@ function AddClothing({ onBack, onSaved }) {
         throw new Error('Sessione non valida. Accedi nuovamente.')
       }
 
-      const originalExtension =
-        file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const extension =
+        processedFile.name.split('.').pop()?.toLowerCase() ||
+        'webp'
 
-      const fileName = `${crypto.randomUUID()}.${originalExtension}`
+      const fileName = `${crypto.randomUUID()}.${extension}`
       uploadedImagePath = `${user.id}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
         .from('clothes-images')
-        .upload(uploadedImagePath, file, {
-          contentType: file.type,
+        .upload(uploadedImagePath, processedFile, {
+          contentType: processedFile.type,
           upsert: false,
         })
 
@@ -151,9 +223,11 @@ function AddClothing({ onBack, onSaved }) {
 
       onSaved()
     } catch (error) {
-      setMessage(error.message || 'Non è stato possibile salvare il capo.')
+      setMessage(
+        error.message || 'Non è stato possibile salvare il capo.',
+      )
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
@@ -176,11 +250,28 @@ function AddClothing({ onBack, onSaved }) {
       <form className="clothing-form" onSubmit={handleSubmit}>
         <div className="photo-field">
           {previewUrl ? (
-            <img
-              className="photo-preview"
-              src={previewUrl}
-              alt="Anteprima del capo"
-            />
+            <div className="processing-preview">
+              <img
+                className="photo-preview"
+                src={previewUrl}
+                alt="Anteprima del capo"
+              />
+
+              {processing && (
+                <div className="processing-overlay">
+                  <div className="processing-spinner" />
+
+                  <strong>Rimozione dello sfondo…</strong>
+
+                  {processingProgress > 0 &&
+                    processingProgress < 100 && (
+                      <span>
+                        Preparazione AI: {processingProgress}%
+                      </span>
+                    )}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="photo-placeholder">
               <ImagePlus />
@@ -188,131 +279,172 @@ function AddClothing({ onBack, onSaved }) {
             </div>
           )}
 
-          <label className="photo-select-button">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
+          {!processing && (
+  <>
+    <input
+      id="clothing-photo"
+      className="photo-input"
+      type="file"
+      accept="image/*"
+      onChange={handleFileChange}
+    />
 
-            {file ? 'Cambia foto' : 'Scatta o scegli una foto'}
-          </label>
+    <label
+      className="photo-select-button"
+      htmlFor="clothing-photo"
+    >
+      {originalFile
+        ? 'Cambia foto'
+        : 'Scatta o scegli una foto'}
+    </label>
+  </>
+)}
         </div>
 
-        <label className="form-field">
-          <span>Nome *</span>
+        {processingError && (
+          <div className="processing-error">
+            <p>{processingError}</p>
 
-          <input
-            type="text"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Es. Camicia bianca"
-            required
-          />
-        </label>
-
-        <label className="form-field">
-          <span>Categoria *</span>
-
-          <select
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            required
-          >
-            <option value="">Seleziona una categoria</option>
-
-            {categories.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="form-field">
-          <span>Brand</span>
-
-          <input
-            type="text"
-            value={brand}
-            onChange={(event) => setBrand(event.target.value)}
-            placeholder="Es. Levi’s"
-          />
-        </label>
-
-        <label className="form-field">
-          <span>Colore</span>
-
-          <input
-            type="text"
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-            placeholder="Es. Blu scuro"
-          />
-        </label>
-
-        <fieldset className="season-field">
-          <legend>Stagione</legend>
-
-          <div className="season-options">
-            {seasons.map((season) => (
-              <label
-                className={`season-option ${
-                  selectedSeasons.includes(season)
-                    ? 'season-option-selected'
-                    : ''
-                }`}
-                key={season}
+            <div className="processing-error-actions">
+              <button
+                type="button"
+                onClick={() => processImage(originalFile)}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedSeasons.includes(season)}
-                  onChange={() => toggleSeason(season)}
-                />
+                Riprova
+              </button>
 
-                {season}
-              </label>
-            ))}
+              <button
+                type="button"
+                onClick={useOriginalImage}
+              >
+                Usa originale
+              </button>
+            </div>
           </div>
-        </fieldset>
-
-        <label className="form-field">
-          <span>Tag</span>
-
-          <input
-            type="text"
-            value={tags}
-            onChange={(event) => setTags(event.target.value)}
-            placeholder="Casual, elegante, preferito"
-          />
-
-          <small>Separa i tag con una virgola.</small>
-        </label>
-
-        <label className="form-field">
-          <span>Note</span>
-
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Informazioni aggiuntive"
-            rows="4"
-          />
-        </label>
-
-        {message && (
-          <p className="form-message">
-            {message}
-          </p>
         )}
 
-        <button
-          className="save-clothing-button"
-          type="submit"
-          disabled={loading}
-        >
-          {loading ? 'Salvataggio...' : 'Salva capo'}
-        </button>
+        {!processing && processedFile && (
+          <>
+            <p className="processing-success">
+              Sfondo rimosso. L’immagine è pronta.
+            </p>
+
+            <label className="form-field">
+              <span>Nome *</span>
+
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Es. Camicia bianca"
+                required
+              />
+            </label>
+
+            <label className="form-field">
+              <span>Categoria *</span>
+
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                required
+              >
+                <option value="">Seleziona una categoria</option>
+
+                {categories.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="form-field">
+              <span>Brand</span>
+
+              <input
+                type="text"
+                value={brand}
+                onChange={(event) => setBrand(event.target.value)}
+                placeholder="Es. Levi’s"
+              />
+            </label>
+
+            <label className="form-field">
+              <span>Colore</span>
+
+              <input
+                type="text"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                placeholder="Es. Blu scuro"
+              />
+            </label>
+
+            <fieldset className="season-field">
+              <legend>Stagione</legend>
+
+              <div className="season-options">
+                {seasons.map((season) => (
+                  <label
+                    className={`season-option ${
+                      selectedSeasons.includes(season)
+                        ? 'season-option-selected'
+                        : ''
+                    }`}
+                    key={season}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSeasons.includes(season)}
+                      onChange={() => toggleSeason(season)}
+                    />
+
+                    {season}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <label className="form-field">
+              <span>Tag</span>
+
+              <input
+                type="text"
+                value={tags}
+                onChange={(event) => setTags(event.target.value)}
+                placeholder="Casual, elegante, preferito"
+              />
+
+              <small>Separa i tag con una virgola.</small>
+            </label>
+
+            <label className="form-field">
+              <span>Note</span>
+
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Informazioni aggiuntive"
+                rows="4"
+              />
+            </label>
+
+            {message && (
+              <p className="form-message">
+                {message}
+              </p>
+            )}
+
+            <button
+              className="save-clothing-button"
+              type="submit"
+              disabled={saving}
+            >
+              {saving ? 'Salvataggio...' : 'Salva capo'}
+            </button>
+          </>
+        )}
       </form>
     </main>
   )
