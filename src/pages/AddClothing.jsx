@@ -15,7 +15,23 @@ const categories = [
   'Shorts',
   'Scarpe',
   'Accessorio',
-  'Altro',
+]
+
+const colors = [
+  'Nero',
+  'Bianco',
+  'Grigio',
+  'Blu',
+  'Azzurro',
+  'Rosso',
+  'Verde',
+  'Marrone',
+  'Beige',
+  'Giallo',
+  'Arancione',
+  'Viola',
+  'Rosa',
+  'Multicolore',
 ]
 
 const seasons = [
@@ -27,6 +43,7 @@ const seasons = [
 
 function AddClothing({ initialFile, onBack, onSaved }) {
   const initialFileHandled = useRef(false)
+
   const [originalFile, setOriginalFile] = useState(null)
   const [processedFile, setProcessedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
@@ -35,13 +52,10 @@ function AddClothing({ initialFile, onBack, onSaved }) {
   const [processingProgress, setProcessingProgress] = useState(0)
   const [processingError, setProcessingError] = useState('')
 
-  const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [brand, setBrand] = useState('')
   const [color, setColor] = useState('')
   const [selectedSeasons, setSelectedSeasons] = useState([])
-  const [tags, setTags] = useState('')
-  const [notes, setNotes] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -55,26 +69,26 @@ function AddClothing({ initialFile, onBack, onSaved }) {
   }, [previewUrl])
 
   useEffect(() => {
-  if (!initialFile || initialFileHandled.current) {
-    return
-  }
+    if (!initialFile || initialFileHandled.current) {
+      return
+    }
 
-  initialFileHandled.current = true
+    initialFileHandled.current = true
 
-  if (!initialFile.type.startsWith('image/')) {
-    setMessage('Il file acquisito non è un’immagine valida.')
-    return
-  }
+    if (!initialFile.type.startsWith('image/')) {
+      setMessage('Il file acquisito non è un’immagine valida.')
+      return
+    }
 
-  if (initialFile.size > 10 * 1024 * 1024) {
-    setMessage('L’immagine non può superare 10 MB.')
-    return
-  }
+    if (initialFile.size > 10 * 1024 * 1024) {
+      setMessage('L’immagine non può superare 10 MB.')
+      return
+    }
 
-  setOriginalFile(initialFile)
-  updatePreview(initialFile)
-  processImage(initialFile)
-}, [initialFile])
+    setOriginalFile(initialFile)
+    updatePreview(initialFile)
+    processImage(initialFile)
+  }, [initialFile])
 
   function updatePreview(file) {
     if (previewUrl) {
@@ -185,6 +199,11 @@ function AddClothing({ initialFile, onBack, onSaved }) {
       return
     }
 
+    if (!category) {
+      setMessage('Seleziona una categoria.')
+      return
+    }
+
     setSaving(true)
     setMessage('')
 
@@ -218,21 +237,13 @@ function AddClothing({ initialFile, onBack, onSaved }) {
         throw uploadError
       }
 
-      const parsedTags = tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-
       const { error: insertError } = await supabase
         .from('clothes')
         .insert({
-          name: name.trim(),
           category,
           brand: brand.trim() || null,
-          color: color.trim() || null,
+          color: color || null,
           seasons: selectedSeasons,
-          tags: parsedTags,
-          notes: notes.trim() || null,
           image_path: uploadedImagePath,
         })
 
@@ -303,25 +314,25 @@ function AddClothing({ initialFile, onBack, onSaved }) {
           )}
 
           {!processing && (
-  <>
-    <input
-      id="clothing-photo"
-      className="photo-input"
-      type="file"
-      accept="image/*"
-      onChange={handleFileChange}
-    />
+            <>
+              <input
+                id="clothing-photo"
+                className="photo-input"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
 
-    <label
-      className="photo-select-button"
-      htmlFor="clothing-photo"
-    >
-      {originalFile
-        ? 'Cambia foto'
-        : 'Scatta o scegli una foto'}
-    </label>
-  </>
-)}
+              <label
+                className="photo-select-button"
+                htmlFor="clothing-photo"
+              >
+                {originalFile
+                  ? 'Cambia foto'
+                  : 'Scatta o scegli una foto'}
+              </label>
+            </>
+          )}
         </div>
 
         {processingError && (
@@ -353,18 +364,6 @@ function AddClothing({ initialFile, onBack, onSaved }) {
             </p>
 
             <label className="form-field">
-              <span>Nome *</span>
-
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Es. Camicia bianca"
-                required
-              />
-            </label>
-
-            <label className="form-field">
               <span>Categoria *</span>
 
               <select
@@ -372,7 +371,9 @@ function AddClothing({ initialFile, onBack, onSaved }) {
                 onChange={(event) => setCategory(event.target.value)}
                 required
               >
-                <option value="">Seleziona una categoria</option>
+                <option value="">
+                  Seleziona una categoria
+                </option>
 
                 {categories.map((item) => (
                   <option key={item} value={item}>
@@ -396,12 +397,20 @@ function AddClothing({ initialFile, onBack, onSaved }) {
             <label className="form-field">
               <span>Colore</span>
 
-              <input
-                type="text"
+              <select
                 value={color}
                 onChange={(event) => setColor(event.target.value)}
-                placeholder="Es. Blu scuro"
-              />
+              >
+                <option value="">
+                  Seleziona un colore
+                </option>
+
+                {colors.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <fieldset className="season-field">
@@ -428,30 +437,6 @@ function AddClothing({ initialFile, onBack, onSaved }) {
                 ))}
               </div>
             </fieldset>
-
-            <label className="form-field">
-              <span>Tag</span>
-
-              <input
-                type="text"
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
-                placeholder="Casual, elegante, preferito"
-              />
-
-              <small>Separa i tag con una virgola.</small>
-            </label>
-
-            <label className="form-field">
-              <span>Note</span>
-
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Informazioni aggiuntive"
-                rows="4"
-              />
-            </label>
 
             {message && (
               <p className="form-message">
