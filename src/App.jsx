@@ -7,6 +7,7 @@ import Navbar from './components/Navbar'
 import AddClothing from './pages/AddClothing'
 import Archive from './pages/Archive'
 import Auth from './pages/Auth'
+import EditClothing from './pages/EditClothing'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import Wardrobe from './pages/Wardrobe'
@@ -14,7 +15,11 @@ import Wardrobe from './pages/Wardrobe'
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
   const [previousPage, setPreviousPage] = useState('home')
+
   const [pendingClothingFile, setPendingClothingFile] =
+    useState(null)
+
+  const [selectedClothing, setSelectedClothing] =
     useState(null)
 
   const [session, setSession] = useState(null)
@@ -55,13 +60,26 @@ function App() {
     setCurrentPage('add-clothing')
   }
 
+  function openEditClothing(clothing) {
+    setPreviousPage('archive')
+    setSelectedClothing(clothing)
+    setCurrentPage('edit-clothing')
+  }
+
   function closeStandalonePage() {
     setPendingClothingFile(null)
+    setSelectedClothing(null)
     setCurrentPage(previousPage)
   }
 
   function handleClothingSaved() {
     setPendingClothingFile(null)
+    setSelectedClothing(null)
+    setCurrentPage('archive')
+  }
+
+  function handleClothingDeleted() {
+    setSelectedClothing(null)
     setCurrentPage('archive')
   }
 
@@ -69,7 +87,10 @@ function App() {
     switch (currentPage) {
       case 'archive':
         return (
-          <Archive onAddClothing={openAddClothing} />
+          <Archive
+            onAddClothing={openAddClothing}
+            onEditClothing={openEditClothing}
+          />
         )
 
       case 'wardrobe':
@@ -93,6 +114,21 @@ function App() {
           />
         )
 
+      case 'edit-clothing':
+        return selectedClothing ? (
+          <EditClothing
+            clothing={selectedClothing}
+            onBack={closeStandalonePage}
+            onSaved={handleClothingSaved}
+            onDeleted={handleClothingDeleted}
+          />
+        ) : (
+          <Archive
+            onAddClothing={openAddClothing}
+            onEditClothing={openEditClothing}
+          />
+        )
+
       case 'home':
       default:
         return (
@@ -106,6 +142,7 @@ function App() {
     setCurrentPage('home')
     setPreviousPage('home')
     setPendingClothingFile(null)
+    setSelectedClothing(null)
   }
 
   if (authLoading) {
@@ -118,7 +155,8 @@ function App() {
 
   const isStandalonePage =
     currentPage === 'profile' ||
-    currentPage === 'add-clothing'
+    currentPage === 'add-clothing' ||
+    currentPage === 'edit-clothing'
 
   return (
     <div className="app">

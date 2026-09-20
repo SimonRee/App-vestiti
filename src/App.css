@@ -453,13 +453,9 @@ button {
   gap: 20px 12px;
 }
 
-.clothing-card {
-  min-width: 0;
-}
-
 .clothing-card-image {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -478,25 +474,6 @@ button {
   color: #777777;
   font-size: 12px;
   text-align: center;
-}
-
-.clothing-card-info {
-  padding-top: 10px;
-}
-
-.clothing-card-info h2 {
-  margin: 0 0 4px;
-  overflow: hidden;
-  font-size: 15px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.clothing-card-info p {
-  margin: 0;
-  color: #777777;
-  font-size: 12px;
 }
 
 .processing-preview {
@@ -574,4 +551,40 @@ button {
   border-radius: 8px;
   background-color: #f1f1f1;
   font-size: 13px;
+}
+
+.clothing-card {
+  min-width: 0;
+  border: 0;
+  outline: none;
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.clothing-card:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 3px;
+}
+
+.clothing-card:active {
+  opacity: 0.75;
+}
+
+.delete-clothing-button {
+  min-height: 52px;
+  border: 1px solid #111111;
+  border-radius: 999px;
+  background-color: #ffffff;
+  color: #111111;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delete-clothing-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
