@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ImagePlus } from 'lucide-react'
-import { removeBackground } from '@imgly/background-removal'
+import {
+  optimizeWithoutBackgroundRemoval,
+  removeBackgroundAndOptimize,
+} from '../utils/imageOptimization'
 import { supabase } from '../lib/supabase'
 
 const categories = [
@@ -46,6 +49,7 @@ function AddClothing({ initialFile, onBack, onSaved }) {
 
   const [originalFile, setOriginalFile] = useState(null)
   const [processedFile, setProcessedFile] = useState(null)
+  const [thumbnailFile, setThumbnailFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
 
   const [processing, setProcessing] = useState(false)
@@ -119,6 +123,7 @@ function AddClothing({ initialFile, onBack, onSaved }) {
 
     setOriginalFile(selectedFile)
     setProcessedFile(null)
+    setThumbnailFile(null)
     setMessage('')
     setProcessingError('')
     updatePreview(selectedFile)
@@ -127,59 +132,60 @@ function AddClothing({ initialFile, onBack, onSaved }) {
   }
 
   async function processImage(imageFile) {
-    setProcessing(true)
-    setProcessingProgress(0)
-    setProcessingError('')
+  setProcessing(true)
+  setProcessingProgress(0)
+  setProcessingError('')
 
-    try {
-      const resultBlob = await removeBackground(imageFile, {
-        model: 'small',
+  try {
+    const {
+      mainFile,
+      thumbnailFile: newThumbnailFile,
+    } = await removeBackgroundAndOptimize(
+      imageFile,
+      setProcessingProgress,
+    )
 
-        output: {
-          format: 'image/webp',
-          quality: 0.85,
-        },
+    setProcessedFile(mainFile)
+    setThumbnailFile(newThumbnailFile)
+    updatePreview(mainFile)
+  } catch (error) {
+    console.error('Errore rimozione sfondo:', error)
 
-        progress: (_key, current, total) => {
-          if (!total) {
-            return
-          }
+    setProcessingError(
+      'Non è stato possibile rimuovere lo sfondo.',
+    )
+  } finally {
+    setProcessing(false)
+  }
+}
 
-          const percentage = Math.round((current / total) * 100)
-          setProcessingProgress(percentage)
-        },
-      })
-
-      const resultFile = new File(
-        [resultBlob],
-        `${crypto.randomUUID()}.webp`,
-        {
-          type: 'image/webp',
-        },
-      )
-
-      setProcessedFile(resultFile)
-      updatePreview(resultFile)
-    } catch (error) {
-      console.error('Errore rimozione sfondo:', error)
-
-      setProcessingError(
-        'Non è stato possibile rimuovere lo sfondo.',
-      )
-    } finally {
-      setProcessing(false)
-    }
+  async function useOriginalImage() {
+  if (!originalFile) {
+    return
   }
 
-  function useOriginalImage() {
-    if (!originalFile) {
-      return
-    }
+  setProcessing(true)
+  setProcessingError('')
 
-    setProcessedFile(originalFile)
-    updatePreview(originalFile)
-    setProcessingError('')
+  try {
+    const {
+      mainFile,
+      thumbnailFile: newThumbnailFile,
+    } = await optimizeWithoutBackgroundRemoval(originalFile)
+
+    setProcessedFile(mainFile)
+    setThumbnailFile(newThumbnailFile)
+    updatePreview(mainFile)
+  } catch (error) {
+    console.error('Errore ottimizzazione immagine:', error)
+
+    setProcessingError(
+      'Non è stato possibile preparare l’immagine.',
+    )
+  } finally {
+    setProcessing(false)
   }
+}
 
   function toggleSeason(season) {
     setSelectedSeasons((currentSeasons) => {
@@ -194,7 +200,7 @@ function AddClothing({ initialFile, onBack, onSaved }) {
   async function handleSubmit(event) {
     event.preventDefault()
 
-    if (!processedFile) {
+    if (!processedFile || !thumbnailFile) {
       setMessage('Aggiungi e prepara una fotografia del capo.')
       return
     }
@@ -208,6 +214,7 @@ function AddClothing({ initialFile, onBack, onSaved }) {
     setMessage('')
 
     let uploadedImagePath = null
+    let uploadedThumbnailPath = null
 
     try {
       const {
@@ -219,41 +226,61 @@ function AddClothing({ initialFile, onBack, onSaved }) {
         throw new Error('Sessione non valida. Accedi nuovamente.')
       }
 
-      const extension =
-        processedFile.name.split('.').pop()?.toLowerCase() ||
-        'webp'
+      const fileId = crypto.randomUUID()
 
-      const fileName = `${crypto.randomUUID()}.${extension}`
-      uploadedImagePath = `${user.id}/${fileName}`
+uploadedImagePath =
+  `${user.id}/originals/${fileId}.webp`
 
-      const { error: uploadError } = await supabase.storage
-        .from('clothes-images')
-        .upload(uploadedImagePath, processedFile, {
-          contentType: processedFile.type,
-          upsert: false,
-        })
+uploadedThumbnailPath =
+  `${user.id}/thumbnails/${fileId}.webp`
 
-      if (uploadError) {
-        throw uploadError
-      }
+const { error: mainUploadError } = await supabase.storage
+  .from('clothes-images')
+  .upload(uploadedImagePath, processedFile, {
+    contentType: 'image/webp',
+    upsert: false,
+  })
 
-      const { error: insertError } = await supabase
-        .from('clothes')
-        .insert({
-          category,
-          brand: brand.trim() || null,
-          color: color || null,
-          seasons: selectedSeasons,
-          image_path: uploadedImagePath,
-        })
+if (mainUploadError) {
+  throw mainUploadError
+}
 
-      if (insertError) {
-        await supabase.storage
-          .from('clothes-images')
-          .remove([uploadedImagePath])
+const { error: thumbnailUploadError } = await supabase.storage
+  .from('clothes-images')
+  .upload(uploadedThumbnailPath, thumbnailFile, {
+    contentType: 'image/webp',
+    upsert: false,
+  })
 
-        throw insertError
-      }
+if (thumbnailUploadError) {
+  await supabase.storage
+    .from('clothes-images')
+    .remove([uploadedImagePath])
+
+  throw thumbnailUploadError
+}
+
+const { error: insertError } = await supabase
+  .from('clothes')
+  .insert({
+    category,
+    brand: brand.trim() || null,
+    color: color || null,
+    seasons: selectedSeasons,
+    image_path: uploadedImagePath,
+    thumbnail_path: uploadedThumbnailPath,
+  })
+
+if (insertError) {
+  await supabase.storage
+    .from('clothes-images')
+    .remove([
+      uploadedImagePath,
+      uploadedThumbnailPath,
+    ])
+
+  throw insertError
+}
 
       onSaved()
     } catch (error) {

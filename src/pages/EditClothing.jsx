@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { removeBackground } from '@imgly/background-removal'
+import {
+  optimizeWithoutBackgroundRemoval,
+  removeBackgroundAndOptimize,
+} from '../utils/imageOptimization'
 import { supabase } from '../lib/supabase'
 
 const categories = [
@@ -56,6 +59,7 @@ function EditClothing({
 
   const [originalFile, setOriginalFile] = useState(null)
   const [processedFile, setProcessedFile] = useState(null)
+  const [thumbnailFile, setThumbnailFile] = useState(null)
   const [localPreviewUrl, setLocalPreviewUrl] = useState('')
 
   const [processing, setProcessing] = useState(false)
@@ -117,6 +121,7 @@ function EditClothing({
 
     setOriginalFile(selectedFile)
     setProcessedFile(null)
+    setThumbnailFile(null)
     setMessage('')
     setProcessingError('')
     updatePreview(selectedFile)
@@ -125,63 +130,64 @@ function EditClothing({
   }
 
   async function processImage(imageFile) {
-    if (!imageFile) {
-      return
-    }
-
-    setProcessing(true)
-    setProcessingProgress(0)
-    setProcessingError('')
-
-    try {
-      const resultBlob = await removeBackground(imageFile, {
-        model: 'small',
-
-        output: {
-          format: 'image/webp',
-          quality: 0.85,
-        },
-
-        progress: (_key, current, total) => {
-          if (!total) {
-            return
-          }
-
-          const percentage = Math.round((current / total) * 100)
-          setProcessingProgress(percentage)
-        },
-      })
-
-      const resultFile = new File(
-        [resultBlob],
-        `${crypto.randomUUID()}.webp`,
-        {
-          type: 'image/webp',
-        },
-      )
-
-      setProcessedFile(resultFile)
-      updatePreview(resultFile)
-    } catch (error) {
-      console.error('Errore rimozione sfondo:', error)
-
-      setProcessingError(
-        'Non è stato possibile rimuovere lo sfondo.',
-      )
-    } finally {
-      setProcessing(false)
-    }
+  if (!imageFile) {
+    return
   }
 
-  function useOriginalImage() {
-    if (!originalFile) {
-      return
-    }
+  setProcessing(true)
+  setProcessingProgress(0)
+  setProcessingError('')
 
-    setProcessedFile(originalFile)
-    updatePreview(originalFile)
-    setProcessingError('')
+  try {
+    const {
+      mainFile,
+      thumbnailFile: newThumbnailFile,
+    } = await removeBackgroundAndOptimize(
+      imageFile,
+      setProcessingProgress,
+    )
+
+    setProcessedFile(mainFile)
+    setThumbnailFile(newThumbnailFile)
+    updatePreview(mainFile)
+  } catch (error) {
+    console.error('Errore rimozione sfondo:', error)
+
+    setProcessingError(
+      'Non è stato possibile rimuovere lo sfondo.',
+    )
+  } finally {
+    setProcessing(false)
   }
+}
+
+  async function useOriginalImage() {
+  if (!originalFile) {
+    return
+  }
+
+  setProcessing(true)
+  setProcessingError('')
+
+  try {
+    const {
+      mainFile,
+      thumbnailFile: newThumbnailFile,
+    } = await optimizeWithoutBackgroundRemoval(originalFile)
+
+    setProcessedFile(mainFile)
+    setThumbnailFile(newThumbnailFile)
+    updatePreview(mainFile)
+  } catch (error) {
+    console.error('Errore ottimizzazione immagine:', error)
+
+    setProcessingError(
+      'Non è stato possibile preparare l’immagine.',
+    )
+  } finally {
+    setProcessing(false)
+  }
+}
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -200,6 +206,7 @@ function EditClothing({
     setMessage('')
 
     let newImagePath = null
+    let newThumbnailPath = null
 
     try {
       const {
@@ -211,25 +218,42 @@ function EditClothing({
         throw new Error('Sessione non valida. Accedi nuovamente.')
       }
 
-      if (processedFile) {
-        const extension =
-          processedFile.name.split('.').pop()?.toLowerCase() ||
-          'webp'
+      if (processedFile && thumbnailFile) {
+  const fileId = crypto.randomUUID()
 
-        const fileName = `${crypto.randomUUID()}.${extension}`
-        newImagePath = `${user.id}/${fileName}`
+  newImagePath =
+    `${user.id}/originals/${fileId}.webp`
 
-        const { error: uploadError } = await supabase.storage
-          .from('clothes-images')
-          .upload(newImagePath, processedFile, {
-            contentType: processedFile.type,
-            upsert: false,
-          })
+  newThumbnailPath =
+    `${user.id}/thumbnails/${fileId}.webp`
 
-        if (uploadError) {
-          throw uploadError
-        }
-      }
+  const { error: mainUploadError } = await supabase.storage
+    .from('clothes-images')
+    .upload(newImagePath, processedFile, {
+      contentType: 'image/webp',
+      upsert: false,
+    })
+
+  if (mainUploadError) {
+    throw mainUploadError
+  }
+
+  const { error: thumbnailUploadError } =
+    await supabase.storage
+      .from('clothes-images')
+      .upload(newThumbnailPath, thumbnailFile, {
+        contentType: 'image/webp',
+        upsert: false,
+      })
+
+  if (thumbnailUploadError) {
+    await supabase.storage
+      .from('clothes-images')
+      .remove([newImagePath])
+
+    throw thumbnailUploadError
+  }
+}
 
       const updatedClothing = {
         category,
@@ -242,33 +266,47 @@ function EditClothing({
         updatedClothing.image_path = newImagePath
       }
 
+      if (newThumbnailPath) {
+        updatedClothing.thumbnail_path = newThumbnailPath
+}
+
       const { error: updateError } = await supabase
         .from('clothes')
         .update(updatedClothing)
         .eq('id', clothing.id)
 
       if (updateError) {
-        if (newImagePath) {
-          await supabase.storage
-            .from('clothes-images')
-            .remove([newImagePath])
-        }
+  const newPaths = [
+    newImagePath,
+    newThumbnailPath,
+  ].filter(Boolean)
 
-        throw updateError
-      }
+  if (newPaths.length > 0) {
+    await supabase.storage
+      .from('clothes-images')
+      .remove(newPaths)
+  }
+
+  throw updateError
+}
 
       if (newImagePath) {
-        const { error: oldImageError } = await supabase.storage
-          .from('clothes-images')
-          .remove([clothing.image_path])
+  const oldPaths = [
+    clothing.image_path,
+    clothing.thumbnail_path,
+  ].filter(Boolean)
 
-        if (oldImageError) {
-          console.error(
-            'Vecchia immagine non eliminata:',
-            oldImageError,
-          )
-        }
-      }
+  const { error: oldImagesError } = await supabase.storage
+    .from('clothes-images')
+    .remove(oldPaths)
+
+  if (oldImagesError) {
+    console.error(
+      'Vecchie immagini non eliminate:',
+      oldImagesError,
+    )
+  }
+}
 
       onSaved()
     } catch (error) {
@@ -303,9 +341,14 @@ function EditClothing({
         throw deleteError
       }
 
-      const { error: imageError } = await supabase.storage
-        .from('clothes-images')
-        .remove([clothing.image_path])
+      const imagePaths = [
+  clothing.image_path,
+  clothing.thumbnail_path,
+].filter(Boolean)
+
+const { error: imageError } = await supabase.storage
+  .from('clothes-images')
+  .remove(imagePaths)
 
       if (imageError) {
         console.error(

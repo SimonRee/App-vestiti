@@ -588,3 +588,12 @@ button {
   cursor: wait;
   opacity: 0.55;
 }
+
+.archive-load-more {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777777;
+  font-size: 13px;
+}
