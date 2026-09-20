@@ -14,6 +14,9 @@ import Wardrobe from './pages/Wardrobe'
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
   const [previousPage, setPreviousPage] = useState('home')
+  const [pendingClothingFile, setPendingClothingFile] =
+    useState(null)
+
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
 
@@ -42,11 +45,24 @@ function App() {
 
   function openAddClothing() {
     setPreviousPage(currentPage)
+    setPendingClothingFile(null)
+    setCurrentPage('add-clothing')
+  }
+
+  function openCapturedClothing(file) {
+    setPreviousPage('home')
+    setPendingClothingFile(file)
     setCurrentPage('add-clothing')
   }
 
   function closeStandalonePage() {
+    setPendingClothingFile(null)
     setCurrentPage(previousPage)
+  }
+
+  function handleClothingSaved() {
+    setPendingClothingFile(null)
+    setCurrentPage('archive')
   }
 
   function renderPage() {
@@ -71,15 +87,16 @@ function App() {
       case 'add-clothing':
         return (
           <AddClothing
+            initialFile={pendingClothingFile}
             onBack={closeStandalonePage}
-            onSaved={() => setCurrentPage('archive')}
+            onSaved={handleClothingSaved}
           />
         )
 
       case 'home':
       default:
         return (
-          <Home onAddClothing={openAddClothing} />
+          <Home onCaptureClothing={openCapturedClothing} />
         )
     }
   }
@@ -88,6 +105,7 @@ function App() {
     await supabase.auth.signOut()
     setCurrentPage('home')
     setPreviousPage('home')
+    setPendingClothingFile(null)
   }
 
   if (authLoading) {

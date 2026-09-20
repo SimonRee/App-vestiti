@@ -1,6 +1,16 @@
 import { Camera } from 'lucide-react'
 
-function Home({ onAddClothing }) {
+function Home({ onCaptureClothing }) {
+  function handleCameraChange(event) {
+    const selectedFile = event.target.files?.[0]
+
+    event.target.value = ''
+
+    if (selectedFile) {
+      onCaptureClothing(selectedFile)
+    }
+  }
+
   return (
     <section className="page">
       <header className="page-header">
@@ -12,14 +22,22 @@ function Home({ onAddClothing }) {
         <p>Nessun outfit salvato</p>
       </div>
 
-      <button
+      <input
+        id="home-camera"
+        className="photo-input"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCameraChange}
+      />
+
+      <label
         className="camera-action"
-        type="button"
-        onClick={onAddClothing}
-        aria-label="Aggiungi un capo"
+        htmlFor="home-camera"
+        aria-label="Scatta la foto di un capo"
       >
         <Camera />
-      </button>
+      </label>
     </section>
   )
 }

@@ -77,6 +77,7 @@ button {
   background-color: #111111;
   color: #ffffff;
   cursor: pointer;
+  user-select: none;
 }
 
 .camera-action svg {

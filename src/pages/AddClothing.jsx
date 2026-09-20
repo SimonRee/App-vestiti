@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ImagePlus } from 'lucide-react'
 import { removeBackground } from '@imgly/background-removal'
 import { supabase } from '../lib/supabase'
@@ -25,7 +25,8 @@ const seasons = [
   'Inverno',
 ]
 
-function AddClothing({ onBack, onSaved }) {
+function AddClothing({ initialFile, onBack, onSaved }) {
+  const initialFileHandled = useRef(false)
   const [originalFile, setOriginalFile] = useState(null)
   const [processedFile, setProcessedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
@@ -52,6 +53,28 @@ function AddClothing({ onBack, onSaved }) {
       }
     }
   }, [previewUrl])
+
+  useEffect(() => {
+  if (!initialFile || initialFileHandled.current) {
+    return
+  }
+
+  initialFileHandled.current = true
+
+  if (!initialFile.type.startsWith('image/')) {
+    setMessage('Il file acquisito non è un’immagine valida.')
+    return
+  }
+
+  if (initialFile.size > 10 * 1024 * 1024) {
+    setMessage('L’immagine non può superare 10 MB.')
+    return
+  }
+
+  setOriginalFile(initialFile)
+  updatePreview(initialFile)
+  processImage(initialFile)
+}, [initialFile])
 
   function updatePreview(file) {
     if (previewUrl) {
