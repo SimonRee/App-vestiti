@@ -1,0 +1,174 @@
+button {
+  color: inherit;
+}
+
+.app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  margin: 0 auto;
+  position: relative;
+  background-color: #ffffff;
+}
+
+.app-content {
+  min-height: 100vh;
+  padding-bottom: 110px;
+}
+
+.page {
+  padding: 32px 20px;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.page-label {
+  margin: 0 0 6px;
+  color: #777777;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.outfit-preview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  background-color: #f1f1f1;
+}
+
+.outfit-preview p,
+.empty-state p {
+  margin: 0;
+  color: #777777;
+  font-size: 14px;
+}
+
+.camera-action {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background-color: #111111;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.camera-action svg {
+  width: 25px;
+  height: 25px;
+  stroke-width: 1.8;
+}
+
+.camera-action:active {
+  transform: scale(0.96);
+}
+
+.add-button {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #111111;
+  border-radius: 50%;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.add-button svg {
+  width: 21px;
+  height: 21px;
+}
+
+.empty-state {
+  min-height: 55vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d4d4d4;
+  text-align: center;
+}
+
+.navbar {
+  width: 100%;
+  height: 88px;
+  position: fixed;
+  z-index: 10;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid #dddddd;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.nav-button {
+  min-width: 0;
+  padding: 8px;
+  border: 0;
+  background-color: transparent;
+  color: #999999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.nav-button svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.7;
+}
+
+.nav-button span {
+  font-size: 11px;
+}
+
+.nav-button-active {
+  color: #111111;
+}
+
+@media (min-width: 481px) {
+  .app {
+    border-right: 1px solid #dddddd;
+    border-left: 1px solid #dddddd;
+  }
+
+  .navbar {
+    width: 480px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
