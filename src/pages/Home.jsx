@@ -1,10 +1,18 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Camera, Shuffle } from 'lucide-react'
 import OutfitCanvas from '../components/OutfitCanvas'
 import { generateRandomOutfit } from '../lib/outfitGenerator'
 
-function Home({ onCaptureClothing, onOpenGeneratedOutfit }) {
+function Home({
+  generatedItemsFromApp = [],
+  onCaptureClothing,
+  onOpenGeneratedOutfit,
+  onGeneratedOutfit,
+}) {
   const [generatedItems, setGeneratedItems] = useState([])
+  useEffect(() => {
+  setGeneratedItems(generatedItemsFromApp)
+}, [generatedItemsFromApp])
   const [generating, setGenerating] = useState(false)
   const [message, setMessage] = useState('')
   const previousKey = useRef('')
@@ -20,6 +28,7 @@ function Home({ onCaptureClothing, onOpenGeneratedOutfit }) {
 
       previousKey.current = result.key
       setGeneratedItems(result.items)
+      onGeneratedOutfit(result.items)
     } catch (error) {
       setMessage(error.message || 'Non è stato possibile generare l’outfit.')
     } finally {

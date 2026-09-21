@@ -188,8 +188,10 @@ case 'outfit-editor':
       default:
         return (
           <Home
+  generatedItemsFromApp={generatedOutfitItems}
   onCaptureClothing={openCapturedClothing}
   onOpenGeneratedOutfit={openGeneratedOutfit}
+  onGeneratedOutfit={setGeneratedOutfitItems}
 />
         )
     }
