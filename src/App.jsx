@@ -25,6 +25,7 @@ function App() {
 
   const [selectedOutfit, setSelectedOutfit] = useState(null)
   const [generatedOutfitItems, setGeneratedOutfitItems] = useState([])
+  const [outfitOriginPage, setOutfitOriginPage] = useState('wardrobe')
 
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -89,35 +90,35 @@ function App() {
 
   function openNewOutfit() {
   setSelectedOutfit(null)
+  setGeneratedOutfitItems([])
+  setOutfitOriginPage('wardrobe')
   setCurrentPage('outfit-editor')
 }
 
 function openEditOutfit(outfit) {
   setSelectedOutfit(outfit)
+  setGeneratedOutfitItems([])
+  setOutfitOriginPage('wardrobe')
   setCurrentPage('outfit-editor')
-}
-
-function returnToWardrobe() {
-  setSelectedOutfit(null)
-  setCurrentPage('wardrobe')
 }
 
 function openGeneratedOutfit(items) {
   setSelectedOutfit(null)
   setGeneratedOutfitItems(items)
+  setOutfitOriginPage('home')
   setCurrentPage('outfit-editor')
 }
 
-function openNewOutfit() {
+function returnFromOutfit(saved = false) {
   setSelectedOutfit(null)
-  setGeneratedOutfitItems([])
-  setCurrentPage('outfit-editor')
-}
 
-function returnToWardrobe() {
-  setSelectedOutfit(null)
-  setGeneratedOutfitItems([])
-  setCurrentPage('wardrobe')
+  if (saved) {
+    setGeneratedOutfitItems([])
+    setCurrentPage('wardrobe')
+    return
+  }
+
+  setCurrentPage(outfitOriginPage)
 }
 
   function renderPage() {
@@ -145,8 +146,8 @@ case 'outfit-editor':
       outfit={selectedOutfit}
       initialItems={generatedOutfitItems}
       userId={session.user.id}
-      onBack={returnToWardrobe}
-      onSaved={returnToWardrobe}
+      onBack={() => returnFromOutfit(false)}
+      onSaved={() => returnFromOutfit(true)}
     />
   )
 
@@ -202,6 +203,7 @@ case 'outfit-editor':
     setSelectedClothing(null)
     setSelectedOutfit(null)
     setGeneratedOutfitItems([])
+    setOutfitOriginPage('wardrobe')
   }
 
   if (authLoading) {
