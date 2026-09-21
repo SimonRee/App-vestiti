@@ -1,8 +1,8 @@
 import { removeBackground } from '@imgly/background-removal'
-import { readAlphaBounds } from '../lib/imageBounds'
 
 const MAIN_MAX_DIMENSION = 1600
 const MAIN_MAX_BYTES = 1024 * 1024
+
 const THUMBNAIL_MAX_DIMENSION = 400
 const THUMBNAIL_MAX_BYTES = 150 * 1024
 
@@ -32,9 +32,7 @@ function canvasToBlob(canvas, quality) {
         if (blob) {
           resolve(blob)
         } else {
-          reject(
-            new Error('Non è stato possibile comprimere l’immagine.'),
-          )
+          reject(new Error('Non è stato possibile comprimere l’immagine.'))
         }
       },
       'image/webp',
@@ -44,16 +42,23 @@ function canvasToBlob(canvas, quality) {
 }
 
 function calculateSize(width, height, maxDimension) {
-  if (width <= maxDimension && height <= maxDimension) {
-    return { width, height }
-  }
-
-  const scale = maxDimension / Math.max(width, height)
+  const ratio = Math.min(1, maxDimension / Math.max(width, height))
 
   return {
-    width: Math.round(width * scale),
-    height: Math.round(height * scale),
+    width: Math.max(1, Math.round(width * ratio)),
+    height: Math.max(1, Math.round(height * ratio)),
   }
+}
+
+function createImageFile(blob, fileName) {
+  // Alcuni browser producono PNG quando l’esportazione WebP
+  // non è disponibile. Manteniamo il formato effettivo.
+  const extension = blob.type === 'image/png' ? 'png' : 'webp'
+  const baseName = fileName.replace(/\.[^.]+$/, '')
+
+  return new File([blob], `${baseName}.${extension}`, {
+    type: blob.type,
+  })
 }
 
 export async function createOptimizedWebp(
@@ -63,72 +68,51 @@ export async function createOptimizedWebp(
     initialQuality,
     maxBytes,
     fileName = `${crypto.randomUUID()}.webp`,
-    trimTransparent = false,
   },
 ) {
   const image = await loadImage(source)
 
-  const bounds = trimTransparent
-  ? readAlphaBounds(
-      image,
-      Math.max(image.naturalWidth, image.naturalHeight),
-    )
-  : {
-      x: 0,
-      y: 0,
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-    }
-
-let { width, height } = calculateSize(
-  bounds.width,
-  bounds.height,
-  maxDimension,
-)
+  let { width, height } = calculateSize(
+    image.naturalWidth,
+    image.naturalHeight,
+    maxDimension,
+  )
 
   let quality = initialQuality
-  let lastBlob = null
 
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
+  const canvas = document.createElement('canvas')
 
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     canvas.width = width
     canvas.height = height
 
-    context.clearRect(0, 0, width, height)
-    context.drawImage(
-  image,
-  bounds.x,
-  bounds.y,
-  bounds.width,
-  bounds.height,
-  0,
-  0,
-  width,
-  height,
-)
+    const context = canvas.getContext('2d')
 
-    lastBlob = await canvasToBlob(canvas, quality)
-
-    if (!maxBytes || lastBlob.size <= maxBytes) {
-      return new File([lastBlob], fileName, {
-        type: 'image/webp',
-      })
+    if (!context) {
+      throw new Error('Non è stato possibile preparare l’immagine.')
     }
 
-    if (quality > 0.54) {
-      quality -= 0.08
+    // Ridimensiona l’intera foto, senza ritagliarla o spostarla.
+    context.drawImage(image, 0, 0, width, height)
+
+    const blob = await canvasToBlob(canvas, quality)
+
+    if (!maxBytes || blob.size <= maxBytes) {
+      return createImageFile(blob, fileName)
+    }
+
+    if (blob.type === 'image/webp' && quality > 0.56) {
+      quality = Math.max(0.56, quality - 0.08)
     } else {
-      width = Math.round(width * 0.85)
-      height = Math.round(height * 0.85)
-      quality = 0.7
+      width = Math.max(1, Math.round(width * 0.85))
+      height = Math.max(1, Math.round(height * 0.85))
+      quality = 0.76
     }
   }
 
-  return new File([lastBlob], fileName, {
-    type: 'image/webp',
-  })
+  throw new Error(
+    'Non è stato possibile ridurre la foto al peso previsto. Prova con un’altra immagine.',
+  )
 }
 
 async function createVariants(source) {
@@ -139,7 +123,6 @@ async function createVariants(source) {
     initialQuality: 0.82,
     maxBytes: MAIN_MAX_BYTES,
     fileName: `${id}.webp`,
-    trimTransparent: true,
   })
 
   const thumbnailFile = await createOptimizedWebp(mainFile, {
@@ -175,9 +158,7 @@ export async function removeBackgroundAndOptimize(
     },
 
     progress: (_key, current, total) => {
-      if (!total || !onProgress) {
-        return
-      }
+      if (!total || !onProgress) return
 
       onProgress(Math.round((current / total) * 100))
     },
