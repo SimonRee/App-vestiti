@@ -1,6 +1,11 @@
 import { Plus } from 'lucide-react'
+import OutfitCanvas from '../components/OutfitCanvas'
+import TapButton from '../components/TapButton'
+import { MoreOutfits, useOutfitPages } from '../hooks/useOutfitPages'
 
-function Wardrobe() {
+function Wardrobe({ onCreateOutfit, onEditOutfit }) {
+  const pager = useOutfitPages('outfits')
+
   return (
     <section className="page">
       <header className="page-header page-header-row">
@@ -11,15 +16,34 @@ function Wardrobe() {
 
         <button
           className="add-button"
+          type="button"
+          onClick={onCreateOutfit}
           aria-label="Crea un outfit"
         >
           <Plus />
         </button>
       </header>
 
-      <div className="empty-state">
-        <p>Non hai ancora creato nessun outfit.</p>
+      {!pager.loading && !pager.error && pager.rows.length === 0 && (
+        <div className="empty-state">
+          <p>Non hai ancora creato nessun outfit.</p>
+        </div>
+      )}
+
+      <div className="clothes-grid">
+        {pager.rows.map((outfit, index) => (
+          <TapButton
+            key={outfit.id}
+            className="outfit-grid-button"
+            aria-label={`Apri outfit ${index + 1}`}
+            onClick={() => onEditOutfit(outfit)}
+          >
+            <OutfitCanvas items={outfit.items} />
+          </TapButton>
+        ))}
       </div>
+
+      <MoreOutfits pager={pager} />
     </section>
   )
 }

@@ -597,3 +597,198 @@ button {
   color: #777777;
   font-size: 13px;
 }
+
+.outfit-grid-button {
+  display: block;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.outfit-grid-button:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 4px;
+}
+
+.outfit-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  isolation: isolate;
+  background: #f1f1f1;
+}
+
+.outfit-piece {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.outfit-piece img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.outfit-piece-editable {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.outfit-piece-editable:active {
+  cursor: grabbing;
+}
+
+.outfit-piece-selected {
+  outline: 1px dashed #111111;
+  outline-offset: 2px;
+}
+
+.outfit-piece-editable:focus-visible {
+  outline: 2px solid #111111;
+}
+
+.outfit-missing-image {
+  font-size: 11px;
+  color: #777777;
+}
+
+.outfit-choice-selected {
+  outline: 2px solid #111111;
+  outline-offset: -2px;
+}
+
+.outfit-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #111111;
+  color: #ffffff;
+  pointer-events: none;
+}
+
+.outfit-editor {
+  padding-bottom: 40px;
+}
+
+.outfit-editor > .form-message {
+  margin-bottom: 20px;
+}
+
+.outfit-editor-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.outfit-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.outfit-secondary {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #cccccc;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.outfit-secondary[aria-pressed="true"] {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.outfit-secondary:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 3px;
+}
+
+.outfit-hint {
+  margin: 0;
+  color: #666666;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.outfit-layer-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.outfit-controls {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+}
+
+.outfit-controls input[type="range"] {
+  padding: 0;
+  min-height: 44px;
+  accent-color: #111111;
+}
+
+.outfit-control-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.outfit-bottom-actions {
+  position: sticky;
+  bottom: 0;
+  padding: 16px 0 max(16px, env(safe-area-inset-bottom));
+  background: #ffffff;
+  z-index: 10;
+}
+
+.outfit-bottom-actions button {
+  width: 100%;
+}
+
+.outfit-editor-fields:disabled {
+  opacity: 0.65;
+}
+
+.outfit-editor button:disabled {
+  cursor: wait;
+}

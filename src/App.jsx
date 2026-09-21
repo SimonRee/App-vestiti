@@ -11,6 +11,7 @@ import EditClothing from './pages/EditClothing'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import Wardrobe from './pages/Wardrobe'
+import OutfitEditor from './pages/OutfitEditor'
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
@@ -21,6 +22,8 @@ function App() {
 
   const [selectedClothing, setSelectedClothing] =
     useState(null)
+
+  const [selectedOutfit, setSelectedOutfit] = useState(null)
 
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -83,6 +86,21 @@ function App() {
     setCurrentPage('archive')
   }
 
+  function openNewOutfit() {
+  setSelectedOutfit(null)
+  setCurrentPage('outfit-editor')
+}
+
+function openEditOutfit(outfit) {
+  setSelectedOutfit(outfit)
+  setCurrentPage('outfit-editor')
+}
+
+function returnToWardrobe() {
+  setSelectedOutfit(null)
+  setCurrentPage('wardrobe')
+}
+
   function renderPage() {
     switch (currentPage) {
       case 'archive':
@@ -94,7 +112,23 @@ function App() {
         )
 
       case 'wardrobe':
-        return <Wardrobe />
+  return (
+    <Wardrobe
+      onCreateOutfit={openNewOutfit}
+      onEditOutfit={openEditOutfit}
+    />
+  )
+
+case 'outfit-editor':
+  return (
+    <OutfitEditor
+      key={`${session.user.id}:${selectedOutfit?.id || 'new'}`}
+      outfit={selectedOutfit}
+      userId={session.user.id}
+      onBack={returnToWardrobe}
+      onSaved={returnToWardrobe}
+    />
+  )
 
       case 'profile':
         return (
@@ -143,6 +177,7 @@ function App() {
     setPreviousPage('home')
     setPendingClothingFile(null)
     setSelectedClothing(null)
+    setSelectedOutfit(null)
   }
 
   if (authLoading) {
@@ -156,7 +191,8 @@ function App() {
   const isStandalonePage =
     currentPage === 'profile' ||
     currentPage === 'add-clothing' ||
-    currentPage === 'edit-clothing'
+    currentPage === 'edit-clothing' ||
+    currentPage === 'outfit-editor'
 
   return (
     <div className="app">
