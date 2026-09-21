@@ -1,4 +1,5 @@
 import { removeBackground } from '@imgly/background-removal'
+import { readAlphaBounds } from '../lib/imageBounds'
 
 const MAIN_MAX_DIMENSION = 1600
 const MAIN_MAX_BYTES = 1024 * 1024
@@ -62,15 +63,28 @@ export async function createOptimizedWebp(
     initialQuality,
     maxBytes,
     fileName = `${crypto.randomUUID()}.webp`,
+    trimTransparent = false,
   },
 ) {
   const image = await loadImage(source)
 
-  let { width, height } = calculateSize(
-    image.naturalWidth,
-    image.naturalHeight,
-    maxDimension,
-  )
+  const bounds = trimTransparent
+  ? readAlphaBounds(
+      image,
+      Math.max(image.naturalWidth, image.naturalHeight),
+    )
+  : {
+      x: 0,
+      y: 0,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+    }
+
+let { width, height } = calculateSize(
+  bounds.width,
+  bounds.height,
+  maxDimension,
+)
 
   let quality = initialQuality
   let lastBlob = null
@@ -83,7 +97,17 @@ export async function createOptimizedWebp(
     canvas.height = height
 
     context.clearRect(0, 0, width, height)
-    context.drawImage(image, 0, 0, width, height)
+    context.drawImage(
+  image,
+  bounds.x,
+  bounds.y,
+  bounds.width,
+  bounds.height,
+  0,
+  0,
+  width,
+  height,
+)
 
     lastBlob = await canvasToBlob(canvas, quality)
 
@@ -115,6 +139,7 @@ async function createVariants(source) {
     initialQuality: 0.82,
     maxBytes: MAIN_MAX_BYTES,
     fileName: `${id}.webp`,
+    trimTransparent: true,
   })
 
   const thumbnailFile = await createOptimizedWebp(mainFile, {

@@ -3,6 +3,7 @@ import { ArrowLeft, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
   automaticLayout,
+  compactAutomaticLayout,
   hydrateItems,
   outfitCategories,
   serializeItems,
@@ -10,6 +11,7 @@ import {
 import OutfitCanvas from '../components/OutfitCanvas'
 import TapButton from '../components/TapButton'
 import { MoreOutfits, useOutfitPages } from '../hooks/useOutfitPages'
+
 
 function ClothesPicker({ category, items, onToggle }) {
   const pager = useOutfitPages('clothes', category)
@@ -71,6 +73,7 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
   const [draft, setDraft] = useState(null)
 
   const operation = useRef(false)
+  const hasComposition = useRef(Boolean(outfit))
   const draftKey = `armarium:outfit:${userId}:${outfit?.id || 'new'}`
   const selected = items.find((item) => item.clothing_id === selectedId)
 
@@ -128,6 +131,7 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
           version: 1,
           savedAt: Date.now(),
           items: serializeItems(items),
+          hasComposition: hasComposition.current,
         }))
       } catch {
         setMessage('Il browser non consente di conservare la bozza. Puoi comunque salvare l’outfit.')
@@ -190,27 +194,80 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
   }
 
   async function continueToComposition() {
-    if (items.length < 2 || operation.current) return
-    operation.current = true
-    setBusy(true)
-    setMessage('')
+  if (items.length < 2 || operation.current) return
 
-    try {
-      const ready = await hydrateItems(serializeItems(items))
+  operation.current = true
+  setBusy(true)
+  setMessage('')
 
-      if (ready.length !== items.length) {
-        setMessage('Un capo non è più disponibile. Controlla la selezione.')
-      }
+  try {
+    const ready = await hydrateItems(serializeItems(items))
 
+    if (ready.length < 2) {
       setItems(ready)
-      if (ready.length >= 2) setMode('compose')
-    } catch (error) {
-      setMessage(error.message)
-    } finally {
-      setBusy(false)
-      operation.current = false
+      setMessage('Servono almeno due capi disponibili. Controlla la selezione.')
+      return
     }
+
+    // La prima composizione viene calcolata sull’intera selezione.
+    // Quando torni dalla selezione a un outfit già composto,
+    // manteniamo invece le posizioni esistenti.
+    const next = hasComposition.current
+      ? ready
+      : await compactAutomaticLayout(ready.map((item) => item.clothing))
+
+    hasComposition.current = true
+    setItems(next)
+    setDirty(true)
+    setSelectedId(null)
+    setMode('compose')
+
+    if (ready.length !== items.length) {
+      setMessage('Un capo non è più disponibile ed è stato escluso.')
+    }
+  } catch (error) {
+    setMessage(error.message || 'Non è stato possibile preparare l’outfit.')
+  } finally {
+    setBusy(false)
+    operation.current = false
   }
+}
+
+async function recompose() {
+  if (!items.length || operation.current) return
+
+  if (!window.confirm(
+    'Ricalcolare dimensioni e posizioni? Le modifiche manuali saranno sostituite.',
+  )) return
+
+  operation.current = true
+  setBusy(true)
+  setMessage('')
+
+  try {
+    // Aggiorna anche gli URL temporanei delle immagini.
+    const ready = await hydrateItems(serializeItems(items))
+
+    if (ready.length !== items.length) {
+      throw new Error(
+        'Un capo non è più disponibile. Controlla prima la selezione.',
+      )
+    }
+
+    const next = await compactAutomaticLayout(
+      ready.map((item) => item.clothing),
+    )
+
+    hasComposition.current = true
+    replaceItems(next)
+    setSelectedId(null)
+  } catch (error) {
+    setMessage(error.message || 'Composizione non riuscita. Riprova.')
+  } finally {
+    setBusy(false)
+    operation.current = false
+  }
+}
 
   async function restoreDraft() {
     if (!draft || operation.current) return
@@ -221,7 +278,14 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
       const ready = await hydrateItems(draft.items)
       setItems(ready)
       setDirty(true)
-      setMode(ready.length >= 2 ? 'compose' : 'select')
+      // Le vecchie bozze, prive del campo, mantengono la loro disposizione.
+hasComposition.current = draft.hasComposition !== false
+
+setMode(
+  ready.length >= 2 && hasComposition.current
+    ? 'compose'
+    : 'select',
+)
       setDraft(null)
       setMessage(
         ready.length !== draft.items.length
@@ -251,6 +315,7 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
           version: 1,
           savedAt: Date.now(),
           items: serializeItems(items),
+          hasComposition: hasComposition.current,
         }))
       } catch {
         // L’uscita rimane possibile.
@@ -451,8 +516,8 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
                         <span>Dimensione</span>
                         <input
                           type="range"
-                          min="0.10"
-                          max="1.20"
+                          min="0.05"
+                          max="2"
                           step="0.01"
                           value={selected.scale}
                           onChange={(event) => changeItem(selectedId, {
@@ -498,16 +563,13 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
                   )}
 
                   <button
-                    type="button"
-                    className="outfit-secondary"
-                    onClick={() => {
-                      if (!window.confirm('Ripristinare la composizione automatica?')) return
-                      replaceItems(automaticLayout(items.map((item) => item.clothing)))
-                      setSelectedId(null)
-                    }}
-                  >
-                    Composizione automatica
-                  </button>
+  type="button"
+  className="outfit-secondary"
+  onClick={recompose}
+  disabled={busy}
+>
+  {busy ? 'Preparazione…' : 'Composizione automatica'}
+</button>
                 </>
               )}
 
