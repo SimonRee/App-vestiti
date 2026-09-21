@@ -36,9 +36,7 @@ function TapButton({ onClick, children, ...props }) {
       onPointerCancel={() => {
         if (gesture.current) gesture.current.cancelled = true
       }}
-      onPointerLeave={() => {
-        if (gesture.current) gesture.current.cancelled = true
-      }}
+      
       onClick={(event) => {
         const cancelled = gesture.current?.cancelled
         gesture.current = null
