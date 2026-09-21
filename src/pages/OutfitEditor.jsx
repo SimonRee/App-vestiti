@@ -60,9 +60,10 @@ function ClothesPicker({ category, items, onToggle }) {
   )
 }
 
-function OutfitEditor({ outfit, userId, onBack, onSaved }) {
+function OutfitEditor({ outfit, initialItems = [], userId, onBack, onSaved }) {
   const [items, setItems] = useState([])
-  const [mode, setMode] = useState(outfit ? 'compose' : 'select')
+  const [mode, setMode] = useState(
+  outfit || initialItems.length ? 'compose' : 'select',)
   const [category, setCategory] = useState('')
   const [manual, setManual] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
@@ -73,8 +74,9 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
   const [draft, setDraft] = useState(null)
 
   const operation = useRef(false)
-  const hasComposition = useRef(Boolean(outfit))
-  const draftKey = `armarium:outfit:${userId}:${outfit?.id || 'new'}`
+  const hasComposition = useRef(
+  Boolean(outfit) || initialItems.length > 0,)
+  const draftKey = `armarium:outfit:${userId}:${outfit?.id || 'generated'}`
   const selected = items.find((item) => item.clothing_id === selectedId)
 
   useEffect(() => {
@@ -82,18 +84,18 @@ function OutfitEditor({ outfit, userId, onBack, onSaved }) {
 
     async function initialize() {
       try {
-        let existing = []
+        let existing = initialItems
 
         if (outfit) {
-          const { data, error } = await supabase
-            .from('outfit_items')
-            .select('clothing_id, position_x, position_y, scale, rotation, z_index')
-            .eq('outfit_id', outfit.id)
-            .order('z_index')
+  const { data, error } = await supabase
+    .from('outfit_items')
+    .select('clothing_id, position_x, position_y, scale, rotation, z_index')
+    .eq('outfit_id', outfit.id)
+    .order('z_index')
 
-          if (error) throw error
-          existing = await hydrateItems(data)
-        }
+  if (error) throw error
+  existing = await hydrateItems(data)
+}
 
         if (cancelled) return
         setItems(existing)

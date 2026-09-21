@@ -24,6 +24,7 @@ function App() {
     useState(null)
 
   const [selectedOutfit, setSelectedOutfit] = useState(null)
+  const [generatedOutfitItems, setGeneratedOutfitItems] = useState([])
 
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -101,6 +102,24 @@ function returnToWardrobe() {
   setCurrentPage('wardrobe')
 }
 
+function openGeneratedOutfit(items) {
+  setSelectedOutfit(null)
+  setGeneratedOutfitItems(items)
+  setCurrentPage('outfit-editor')
+}
+
+function openNewOutfit() {
+  setSelectedOutfit(null)
+  setGeneratedOutfitItems([])
+  setCurrentPage('outfit-editor')
+}
+
+function returnToWardrobe() {
+  setSelectedOutfit(null)
+  setGeneratedOutfitItems([])
+  setCurrentPage('wardrobe')
+}
+
   function renderPage() {
     switch (currentPage) {
       case 'archive':
@@ -122,8 +141,9 @@ function returnToWardrobe() {
 case 'outfit-editor':
   return (
     <OutfitEditor
-      key={`${session.user.id}:${selectedOutfit?.id || 'new'}`}
+      key={`${session.user.id}:${selectedOutfit?.id || 'generated'}`}
       outfit={selectedOutfit}
+      initialItems={generatedOutfitItems}
       userId={session.user.id}
       onBack={returnToWardrobe}
       onSaved={returnToWardrobe}
@@ -166,7 +186,10 @@ case 'outfit-editor':
       case 'home':
       default:
         return (
-          <Home onCaptureClothing={openCapturedClothing} />
+          <Home
+  onCaptureClothing={openCapturedClothing}
+  onOpenGeneratedOutfit={openGeneratedOutfit}
+/>
         )
     }
   }
@@ -178,6 +201,7 @@ case 'outfit-editor':
     setPendingClothingFile(null)
     setSelectedClothing(null)
     setSelectedOutfit(null)
+    setGeneratedOutfitItems([])
   }
 
   if (authLoading) {

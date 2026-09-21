@@ -1,9 +1,34 @@
-import { Camera } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Camera, Shuffle } from 'lucide-react'
+import OutfitCanvas from '../components/OutfitCanvas'
+import { generateRandomOutfit } from '../lib/outfitGenerator'
 
-function Home({ onCaptureClothing }) {
+function Home({ onCaptureClothing, onOpenGeneratedOutfit }) {
+  const [generatedItems, setGeneratedItems] = useState([])
+  const [generating, setGenerating] = useState(false)
+  const [message, setMessage] = useState('')
+  const previousKey = useRef('')
+
+  async function handleGenerate() {
+    if (generating) return
+
+    setGenerating(true)
+    setMessage('')
+
+    try {
+      const result = await generateRandomOutfit(previousKey.current)
+
+      previousKey.current = result.key
+      setGeneratedItems(result.items)
+    } catch (error) {
+      setMessage(error.message || 'Non è stato possibile generare l’outfit.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   function handleCameraChange(event) {
     const selectedFile = event.target.files?.[0]
-
     event.target.value = ''
 
     if (selectedFile) {
@@ -12,15 +37,45 @@ function Home({ onCaptureClothing }) {
   }
 
   return (
-    <section className="page">
+    <section className="page home-page">
       <header className="page-header">
         <p className="page-label">Outfit del giorno</p>
         <h1>Gasa?</h1>
       </header>
 
-      <div className="outfit-preview">
-        <p>Nessun outfit salvato</p>
-      </div>
+      <button
+        type="button"
+        className={`outfit-preview home-outfit-preview ${
+          generatedItems.length ? 'home-outfit-preview-active' : ''
+        }`}
+        onClick={() => {
+          if (generatedItems.length) {
+            onOpenGeneratedOutfit(generatedItems)
+          }
+        }}
+        disabled={!generatedItems.length}
+        aria-label={
+          generatedItems.length
+            ? 'Apri outfit generato'
+            : 'Nessun outfit generato'
+        }
+      >
+        {generatedItems.length ? (
+          <OutfitCanvas items={generatedItems} />
+        ) : (
+          <p>
+            {generating
+              ? 'Generazione in corso…'
+              : 'Genera un outfit per iniziare'}
+          </p>
+        )}
+      </button>
+
+      {message && (
+        <p className="form-message" role="status">
+          {message}
+        </p>
+      )}
 
       <input
         id="home-camera"
@@ -31,13 +86,25 @@ function Home({ onCaptureClothing }) {
         onChange={handleCameraChange}
       />
 
-      <label
-        className="camera-action"
-        htmlFor="home-camera"
-        aria-label="Scatta la foto di un capo"
-      >
-        <Camera />
-      </label>
+      <div className="home-actions">
+        <button
+          type="button"
+          className="generate-outfit-button"
+          onClick={handleGenerate}
+          disabled={generating}
+        >
+          <Shuffle size={22} aria-hidden="true" />
+          <span>{generating ? 'Generazione…' : 'Genera outfit'}</span>
+        </button>
+
+        <label
+          className="camera-action"
+          htmlFor="home-camera"
+          aria-label="Scatta la foto di un capo"
+        >
+          <Camera />
+        </label>
+      </div>
     </section>
   )
 }
