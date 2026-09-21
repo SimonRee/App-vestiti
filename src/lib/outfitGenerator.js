@@ -1,14 +1,7 @@
 import { supabase } from './supabase'
 import { attachImages, automaticLayout } from './outfits'
 
-const TOP_CATEGORIES = [
-  'T-shirt',
-  'Camicia',
-  'Felpa',
-  'Maglione',
-  'Giacca',
-  'Cappotto',
-]
+const OPTIONAL_PROBABILITY = 0.5
 
 const BOTTOM_CATEGORIES = [
   'Pantaloni',
@@ -22,10 +15,6 @@ function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)]
 }
 
-function shuffle(items) {
-  return [...items].sort(() => Math.random() - 0.5)
-}
-
 function combinationKey(items) {
   return items
     .map((item) => item.id)
@@ -33,95 +22,176 @@ function combinationKey(items) {
     .join('|')
 }
 
-export async function generateRandomOutfit(previousKey = '') {
-  const { data, error } = await supabase
-    .from('clothes')
-    .select('id, category, image_path, thumbnail_path, brand, color, seasons')
-    .order('created_at', { ascending: false })
-
-  if (error) throw error
-
-  if (!data?.length) {
-    throw new Error('Aggiungi almeno due capi all’Archivio.')
+function chooseExclusiveGroup(firstGroup, secondGroup) {
+  if (!firstGroup.length && !secondGroup.length) {
+    return null
   }
 
-  const tops = data.filter((item) =>
-    TOP_CATEGORIES.includes(item.category),
+  if (!firstGroup.length) {
+    return randomItem(secondGroup)
+  }
+
+  if (!secondGroup.length) {
+    return randomItem(firstGroup)
+  }
+
+  return Math.random() < 0.5
+    ? randomItem(firstGroup)
+    : randomItem(secondGroup)
+}
+
+function createSelection(data) {
+  const tShirts = data.filter(
+    (item) => item.category === 'T-shirt',
+  )
+
+  const shirts = data.filter(
+    (item) => item.category === 'Camicia',
+  )
+
+  const sweatshirts = data.filter(
+    (item) => item.category === 'Felpa',
+  )
+
+  const sweaters = data.filter(
+    (item) => item.category === 'Maglione',
+  )
+
+  const jackets = data.filter(
+    (item) => item.category === 'Giacca',
+  )
+
+  const coats = data.filter(
+    (item) => item.category === 'Cappotto',
   )
 
   const bottoms = data.filter((item) =>
     BOTTOM_CATEGORIES.includes(item.category),
   )
 
-  const shoes = data.filter((item) => item.category === 'Scarpe')
+  const shoes = data.filter(
+    (item) => item.category === 'Scarpe',
+  )
+
   const accessories = data.filter(
     (item) => item.category === 'Accessorio',
   )
 
-  const pool = []
+  const selected = []
 
-  // Un solo capo della parte superiore.
-  if (tops.length) pool.push(randomItem(tops))
+  // La T-shirt è sempre obbligatoria.
+  const tShirt = randomItem(tShirts)
 
-  // Un solo capo della parte inferiore.
-  if (bottoms.length) pool.push(randomItem(bottoms))
+  if (!tShirt) {
+    throw new Error(
+      'Aggiungi almeno una T-shirt all’Archivio.',
+    )
+  }
 
-  // Un solo paio di scarpe.
-  if (shoes.length) pool.push(randomItem(shoes))
+  selected.push(tShirt)
+
+  // La camicia è opzionale.
+  if (
+    shirts.length &&
+    Math.random() < OPTIONAL_PROBABILITY
+  ) {
+    selected.push(randomItem(shirts))
+  }
+
+  // Felpa e maglione sono esclusivi:
+  // può uscire al massimo uno dei due.
+  if (
+    (sweatshirts.length || sweaters.length) &&
+    Math.random() < OPTIONAL_PROBABILITY
+  ) {
+    selected.push(
+      chooseExclusiveGroup(sweatshirts, sweaters),
+    )
+  }
+
+  // Giacca e cappotto sono esclusivi:
+  // può uscire al massimo uno dei due.
+  if (
+    (jackets.length || coats.length) &&
+    Math.random() < OPTIONAL_PROBABILITY
+  ) {
+    selected.push(
+      chooseExclusiveGroup(jackets, coats),
+    )
+  }
+
+  // Massimo un capo inferiore.
+  if (bottoms.length) {
+    selected.push(randomItem(bottoms))
+  }
+
+  // Massimo un paio di scarpe.
+  if (shoes.length) {
+    selected.push(randomItem(shoes))
+  }
 
   // L’accessorio è opzionale.
-  if (accessories.length && Math.random() > 0.5) {
-    pool.push(randomItem(accessories))
+  if (
+    accessories.length &&
+    Math.random() < OPTIONAL_PROBABILITY
+  ) {
+    selected.push(randomItem(accessories))
   }
 
-  let selected = pool.filter(Boolean)
+  return selected.filter(Boolean)
+}
 
-  // Se il guardaroba è piccolo, aggiunge altri capi disponibili
-  // senza duplicare categorie già presenti.
-  if (selected.length < 2) {
-    const usedIds = new Set(selected.map((item) => item.id))
-    const remaining = shuffle(
-      data.filter((item) => !usedIds.has(item.id)),
+export async function generateRandomOutfit(previousKey = '') {
+  const { data, error } = await supabase
+    .from('clothes')
+    .select(
+      'id, category, image_path, thumbnail_path, brand, color, seasons',
     )
+    .order('created_at', { ascending: false })
 
-    for (const item of remaining) {
-      if (selected.length >= 2) break
-      if (selected.some((current) => current.category === item.category)) {
-        continue
-      }
+  if (error) throw error
 
-      selected.push(item)
-    }
+  if (!data?.length) {
+    throw new Error(
+      'Aggiungi almeno due capi all’Archivio.',
+    )
   }
 
-  if (selected.length < 2) {
-    throw new Error('Servono almeno due categorie di capi nell’Archivio.')
+  const availableTShirts = data.filter(
+    (item) => item.category === 'T-shirt',
+  )
+
+  if (!availableTShirts.length) {
+    throw new Error(
+      'Aggiungi almeno una T-shirt all’Archivio.',
+    )
   }
 
-  // Evita di riproporre la stessa combinazione quando ci sono alternative.
+  let selected = createSelection(data)
   let key = combinationKey(selected)
 
-  if (key === previousKey && data.length > selected.length) {
-    for (let attempt = 0; attempt < 8 && key === previousKey; attempt += 1) {
-      const alternative = shuffle(data)
-      const replacement = alternative.find((item) => {
-        const sameCategory = selected.some(
-          (current) => current.category === item.category,
-        )
+  // Prova a evitare la stessa combinazione consecutiva.
+  // Ricrea l’outfit rispettando sempre tutte le regole.
+  if (key === previousKey) {
+    for (
+      let attempt = 0;
+      attempt < 12 && key === previousKey;
+      attempt += 1
+    ) {
+      const alternative = createSelection(data)
+      const alternativeKey = combinationKey(alternative)
 
-        return !sameCategory
-      })
-
-      if (replacement) {
-        const replaceIndex = Math.floor(Math.random() * selected.length)
-        selected = [
-          ...selected.slice(0, replaceIndex),
-          replacement,
-          ...selected.slice(replaceIndex + 1),
-        ]
-        key = combinationKey(selected)
+      if (alternativeKey !== previousKey) {
+        selected = alternative
+        key = alternativeKey
       }
     }
+  }
+
+  if (selected.length < 2) {
+    throw new Error(
+      'Servono almeno due categorie di capi nell’Archivio.',
+    )
   }
 
   const withImages = await attachImages(selected, true)
