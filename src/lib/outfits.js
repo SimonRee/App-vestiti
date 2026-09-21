@@ -14,6 +14,52 @@ export const outfitCategories = [
   'Accessorio',
 ]
 
+// REGOLE DI BASE
+//
+// size: dimensione del quadrato che contiene la foto.
+// angle: rotazione in gradi.
+// layer: un valore maggiore porta il capo più avanti.
+//
+// Le posizioni e gli adattamenti ai gruppi presenti
+// sono definiti nella funzione automaticLayout.
+const LAYOUT_RULES = {
+  outer: {
+    size: 0.96,
+    angle: -8,
+    layer: 0,
+  },
+
+  middle: {
+    size: 0.90,
+    angle: -8,
+    layer: 200,
+  },
+
+  top: {
+    size: 0.90,
+    angle: 8,
+    layer: 300,
+  },
+
+  bottom: {
+    size: 0.96,
+    angle: -7,
+    layer: 100,
+  },
+
+  shoes: {
+    size: 0.50,
+    angle: 5,
+    layer: 400,
+  },
+
+  accessory: {
+    size: 0.36,
+    angle: 10,
+    layer: 500,
+  },
+}
+
 export function serializeItems(items) {
   return items.map((item) => ({
     clothing_id: item.clothing_id,
@@ -36,7 +82,10 @@ export async function attachImages(clothes, fullSize = false) {
   const paths = [...new Set(clothes.map(pathFor).filter(Boolean))]
 
   if (!paths.length) {
-    return clothes.map((item) => ({ ...item, imageUrl: null }))
+    return clothes.map((item) => ({
+      ...item,
+      imageUrl: null,
+    }))
   }
 
   const { data, error } = await supabase.storage
@@ -78,9 +127,20 @@ export async function hydrateItems(items) {
     }))
 }
 
+// ASSEGNAZIONE DELLE CATEGORIE AI GRUPPI
 function groupOf(category) {
-  if (['Giacca', 'Cappotto'].includes(category)) return 'outer'
-  if (['Pantaloni', 'Jeans', 'Shorts'].includes(category)) return 'bottom'
+  if (['Giacca', 'Cappotto'].includes(category)) {
+    return 'outer'
+  }
+
+  if (['Felpa', 'Maglione'].includes(category)) {
+    return 'middle'
+  }
+
+  if (['Pantaloni', 'Jeans', 'Shorts'].includes(category)) {
+    return 'bottom'
+  }
+
   if (category === 'Scarpe') return 'shoes'
   if (category === 'Accessorio') return 'accessory'
 
@@ -92,105 +152,229 @@ function clamp(value, min, max) {
 }
 
 export function automaticLayout(clothes) {
-  const hasOuter = clothes.some(
-    (clothing) => groupOf(clothing.category) === 'outer',
+  if (!clothes.length) return []
+
+  const groups = Object.fromEntries(
+    Object.keys(LAYOUT_RULES).map((key) => [key, []]),
   )
 
-  const templates = {
+  clothes.forEach((clothing) => {
+    groups[groupOf(clothing.category)].push(clothing)
+  })
+
+  const upperGroups = ['outer', 'middle', 'top'].filter(
+    (key) => groups[key].length > 0,
+  )
+
+  const activeGroups = Object.keys(groups).filter(
+    (key) => groups[key].length > 0,
+  )
+
+  const hasUpper = upperGroups.length > 0
+  const hasBottom = groups.bottom.length > 0
+  const hasShoes = groups.shoes.length > 0
+  const hasAccessory = groups.accessory.length > 0
+
+  // POSIZIONI DI BASE
+  //
+  // x: da sinistra (0) a destra (1).
+  // y: dall’alto (0) al basso (1).
+  //
+  // Si riferiscono al centro della foto, non al capo visibile.
+  const anchors = {
     outer: {
-      x: 0.41,
-      y: 0.40,
-      size: 0.76,
-      angle: -3,
-      layer: 0,
+      x: 0.35,
+      y: 0.35,
     },
 
-    bottom: {
-      x: 0.44,
-      y: 0.62,
-      size: 0.74,
-      angle: -2,
-      layer: 20,
+    middle: {
+      x: 0.43,
+      y: 0.34,
     },
 
     top: {
-      x: hasOuter ? 0.56 : 0.50,
-      y: 0.36,
-      size: 0.70,
-      angle: 3,
-      layer: 40,
+      x: 0.58,
+      y: 0.31,
+    },
+
+    bottom: {
+      x: hasShoes || hasAccessory ? 0.34 : 0.42,
+      y: 0.65,
     },
 
     shoes: {
-      x: 0.73,
-      y: 0.76,
-      size: 0.42,
-      angle: 0,
-      layer: 60,
+      x: 0.75,
+      y: 0.73,
     },
 
     accessory: {
-      x: 0.76,
+      x: 0.79,
       y: 0.43,
-      size: 0.30,
-      angle: 5,
-      layer: 80,
     },
   }
 
-  const counters = {}
+  const sizes = Object.fromEntries(
+    Object.entries(LAYOUT_RULES).map(([key, rule]) => [
+      key,
+      rule.size,
+    ]),
+  )
 
-  // Manteniamo l’ordine ricevuto: l’editor lo usa quando aggiunge un capo.
-  return clothes.map((clothing) => {
-    const group = groupOf(clothing.category)
-    const template = templates[group]
+  // PIÙ STRATI SUPERIORI
+  //
+  // Da sinistra a destra:
+  // capospalla → felpa/maglione → T-shirt/camicia.
+  //
+  // Se manca un gruppo, gli altri occupano le posizioni disponibili.
+  if (upperGroups.length > 1) {
+    const positions = upperGroups.length === 2
+      ? [0.35, 0.61]
+      : [0.29, 0.45, 0.64]
 
-    const index = counters[group] || 0
-    counters[group] = index + 1
+    upperGroups.forEach((key, index) => {
+      anchors[key].x = positions[index]
 
-    const offsetX = index === 0
-      ? 0
-      : ((index % 3) - 1) * 0.025
+      // Riduzione moderata per lasciare leggibili più strati.
+      sizes[key] *= upperGroups.length === 3 ? 0.90 : 0.96
+    })
+  }
 
-    const offsetY = index * 0.015
-    const rotation = template.angle + (index % 2 ? -4 : 0)
+  // SENZA PANTALONI
+  //
+  // La parte superiore scende verso il centro.
+  if (!hasBottom && hasUpper) {
+    upperGroups.forEach((key) => {
+      anchors[key].y += hasShoes ? 0.06 : 0.13
+    })
 
-    // Mantiene dentro il riquadro anche gli angoli dell’immagine ruotata.
-    // Non analizza pixel, trasparenza o contenuto della foto.
-    const radians = rotation * Math.PI / 180
-
-    const halfExtent = (
-      template.size *
-      (Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians)))
-    ) / 2
-
-    const minCenter = halfExtent + 0.015
-    const maxCenter = 1 - minCenter
-
-    return {
-      clothing_id: clothing.id,
-      clothing,
-
-      position_x: clamp(
-        template.x + offsetX,
-        minCenter,
-        maxCenter,
-      ),
-
-      position_y: clamp(
-        template.y + offsetY,
-        minCenter,
-        maxCenter,
-      ),
-
-      scale: template.size,
-      rotation,
-      z_index: template.layer + index,
+    anchors.shoes = {
+      x: 0.66,
+      y: 0.73,
     }
+
+    if (upperGroups.length === 1) {
+      anchors[upperGroups[0]].x = hasAccessory ? 0.43 : 0.48
+    }
+  }
+
+  // SENZA PARTE SUPERIORE
+  //
+  // I pantaloni salgono e diventano il centro della composizione.
+  if (!hasUpper && hasBottom) {
+    anchors.bottom = {
+      x: hasShoes || hasAccessory ? 0.40 : 0.50,
+      y: 0.49,
+    }
+
+    anchors.shoes = {
+      x: 0.73,
+      y: 0.65,
+    }
+
+    anchors.accessory = {
+      x: 0.73,
+      y: 0.31,
+    }
+  }
+
+  // SOLO SCARPE E ACCESSORI
+  if (!hasUpper && !hasBottom && hasShoes && hasAccessory) {
+    anchors.shoes = {
+      x: 0.35,
+      y: 0.53,
+    }
+
+    anchors.accessory = {
+      x: 0.68,
+      y: 0.47,
+    }
+
+    sizes.shoes = 0.65
+    sizes.accessory = 0.48
+  }
+
+  // UN SOLO GRUPPO PRESENTE
+  //
+  // Il gruppo viene centrato.
+  // Può comunque contenere più capi.
+  if (activeGroups.length === 1) {
+    const key = activeGroups[0]
+
+    anchors[key] = {
+      x: 0.50,
+      y: 0.50,
+    }
+
+    if (key === 'shoes') sizes.shoes = 0.68
+    if (key === 'accessory') sizes.accessory = 0.58
+  }
+
+  const placements = new Map()
+
+  activeGroups.forEach((key) => {
+    // Ordine stabile anche se cambia l’ordine della selezione.
+    const ordered = [...groups[key]].sort((a, b) =>
+      String(a.id).localeCompare(String(b.id)),
+    )
+
+    const count = ordered.length
+    const columns = Math.min(count, 3)
+    const rows = Math.ceil(count / columns)
+
+    ordered.forEach((clothing, index) => {
+      const row = Math.floor(index / columns)
+      const inRow = Math.min(columns, count - row * columns)
+      const column = index % columns
+
+      // Più spazio tra i capi se occupano da soli la composizione.
+      const spread = activeGroups.length === 1 ? 0.27 : 0.14
+      const verticalSpread = activeGroups.length === 1 ? 0.16 : 0.09
+
+      const offsetX = (column - (inRow - 1) / 2) * spread
+      const offsetY = (row - (rows - 1) / 2) * verticalSpread
+
+      // Piccola alternanza, senza rotazioni estreme.
+      const variation = count > 1
+        ? (index % 2 === 0 ? -3 : 3)
+        : 0
+
+      // Più capi nello stesso gruppo: dimensione un po’ ridotta.
+      const reduction = Math.max(
+        0.68,
+        1 - (count - 1) * 0.06,
+      )
+
+      placements.set(clothing.id, {
+        // Limiti applicati soltanto al centro.
+        // Il quadrato della foto può oltrepassare il bordo.
+        position_x: clamp(
+          anchors[key].x + offsetX,
+          0.05,
+          0.95,
+        ),
+
+        position_y: clamp(
+          anchors[key].y + offsetY,
+          0.05,
+          0.95,
+        ),
+
+        scale: sizes[key] * reduction,
+        rotation: LAYOUT_RULES[key].angle + variation,
+        z_index: LAYOUT_RULES[key].layer + index,
+      })
+    })
   })
+
+  // Mantiene l’ordine atteso dall’editor quando aggiunge un capo.
+  return clothes.map((clothing) => ({
+    clothing_id: clothing.id,
+    clothing,
+    ...placements.get(clothing.id),
+  }))
 }
 
-// Mantiene compatibili le chiamate già presenti in OutfitEditor.
+// Compatibilità con le chiamate già presenti nell’editor.
 export async function compactAutomaticLayout(clothes) {
   return automaticLayout(clothes)
 }
